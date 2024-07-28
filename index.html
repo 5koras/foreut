@@ -3,46 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Simple Page</title>
+    <title>Minecraft Map</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            font-family: Arial, sans-serif;
         }
-        header {
-            background-color: #333;
-            color: #fff;
-            padding: 1em 0;
-            text-align: center;
-        }
-        main {
-            padding: 2em;
-            text-align: center;
-        }
-        footer {
-            background-color: #333;
-            color: #fff;
-            padding: 1em 0;
-            text-align: center;
-            position: fixed;
-            bottom: 0;
+        #map {
             width: 100%;
+            height: 100vh;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to My Simple Page</h1>
-    </header>
-    <main>
-        <h2>Hello, World!</h2>
-        <p>This is a simple HTML page with a header, main content area, and footer.</p>
-        <a href="https://www.example.com" target="_blank">Visit Example.com</a>
-    </main>
-    <footer>
-        <p>&copy; 2024 My Simple Page</p>
-    </footer>
+    <h1>마인크래프트 실시간 맵</h1>
+    <iframe id="map" src="http://114.200.236.40:8123/" frameborder="0"></iframe>
+    <script>
+        // WebSocket 또는 AJAX를 사용하여 실시간 플레이어 데이터를 업데이트하는 스크립트를 추가하세요.
+    </script>
 </body>
 </html>
