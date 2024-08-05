@@ -162,6 +162,7 @@
         const postsPerPage = 5;
         let loggedInUser = null;
         let currentPage = 1;
+        let currentPostId = null;
 
         function signup() {
             const nickname = document.getElementById('signup-nickname').value;
@@ -205,9 +206,10 @@
             const image = document.getElementById('post-image').files[0];
             const imageUrl = image ? URL.createObjectURL(image) : '';
             const timestamp = new Date().toLocaleString();
+            const postId = new Date().getTime();  // 유니크한 ID 생성
 
             if (title && content) {
-                const post = { title, content, imageUrl, timestamp, nickname: loggedInUser.nickname, likes: 0, dislikes: 0, comments: [] };
+                const post = { id: postId, title, content, imageUrl, timestamp, nickname: loggedInUser.nickname, likes: 0, dislikes: 0, views: 0, likedBy: [], dislikedBy: [], comments: [] };
                 posts.push(post);
                 localStorage.setItem('posts', JSON.stringify(posts));
                 document.getElementById('post-title').value = '';
@@ -229,21 +231,21 @@
                 const postElement = document.createElement('div');
                 postElement.className = 'post';
                 postElement.innerHTML = `
-                    <h3>${post.title}</h3>
-                    <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp}</p>
+                    <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+                    <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
                     <p>${post.content}</p>
                     ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
                     <div class="post-actions">
-                        <button class="like-btn" onclick="likePost(${i})">좋아요 (${post.likes})</button>
-                        <button class="dislike-btn" onclick="dislikePost(${i})">싫어요 (${post.dislikes})</button>
-                        <button class="share-btn" onclick="sharePost()">공유</button>
-                        ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${i})">삭제</button>` : ''}
+                        <button class="like-btn" onclick="likePost(${post.id})">좋아요 (${post.likes})</button>
+                        <button class="dislike-btn" onclick="dislikePost(${post.id})">싫어요 (${post.dislikes})</button>
+                        <button class="share-btn" onclick="sharePost(${post.id})">공유</button>
+                        ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${post.id})">삭제</button>` : ''}
                     </div>
                     <div class="comments">
                         <h4>댓글</h4>
                         ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
-                        <input type="text" id="comment-${i}" placeholder="댓글 입력">
-                        <button onclick="addComment(${i})">댓글 추가</button>
+                        <input type="text" id="comment-${post.id}" placeholder="댓글 입력">
+                        <button onclick="addComment(${post.id})">댓글 추가</button>
                     </div>
                 `;
                 postsContainer.appendChild(postElement);
@@ -253,41 +255,63 @@
             document.getElementById('next-btn').disabled = endIndex >= posts.length;
         }
 
-        function likePost(index) {
-            posts[index].likes += 1;
-            localStorage.setItem('posts', JSON.stringify(posts));
-            displayPosts();
+        function likePost(postId) {
+            const post = posts.find(p => p.id === postId);
+            if (post.likedBy.includes(loggedInUser.nickname) || post.dislikedBy.includes(loggedInUser.nickname)) {
+                alert('좋아요와 싫어요는 동시에 선택할 수 없습니다.');
+                return;
+            }
+            if (!post.likedBy.includes(loggedInUser.nickname)) {
+                post.likes += 1;
+                post.likedBy.push(loggedInUser.nickname);
+                localStorage.setItem('posts', JSON.stringify(posts));
+                displayPosts();
+            }
         }
 
-        function dislikePost(index) {
-            posts[index].dislikes += 1;
-            localStorage.setItem('posts', JSON.stringify(posts));
-            displayPosts();
+        function dislikePost(postId) {
+            const post = posts.find(p => p.id === postId);
+            if (post.dislikedBy.includes(loggedInUser.nickname) || post.likedBy.includes(loggedInUser.nickname)) {
+                alert('좋아요와 싫어요는 동시에 선택할 수 없습니다.');
+                return;
+            }
+            if (!post.dislikedBy.includes(loggedInUser.nickname)) {
+                post.dislikes += 1;
+                post.dislikedBy.push(loggedInUser.nickname);
+                localStorage.setItem('posts', JSON.stringify(posts));
+                displayPosts();
+            }
         }
 
-        function sharePost() {
-            alert('게시글이 공유되었습니다.');
+        function sharePost(postId) {
+            const post = posts.find(p => p.id === postId);
+            const postUrl = `${window.location.origin}/post.html?id=${postId}`;
+            navigator.clipboard.writeText(postUrl).then(() => {
+                alert('게시글 URL이 클립보드에 복사되었습니다.');
+            });
         }
 
-        function addComment(postIndex) {
+        function addComment(postId) {
             if (!loggedInUser) {
                 alert('로그인 후 댓글을 작성할 수 있습니다.');
                 return;
             }
-            const commentInput = document.getElementById(`comment-${postIndex}`);
+            const post = posts.find(p => p.id === postId);
+            const commentInput = document.getElementById(`comment-${postId}`);
             const commentText = commentInput.value;
             if (commentText) {
                 const timestamp = new Date().toLocaleString();
-                posts[postIndex].comments.push({ text: commentText, nickname: loggedInUser.nickname, timestamp });
+                post.comments.push({ text: commentText, nickname: loggedInUser.nickname, timestamp });
                 localStorage.setItem('posts', JSON.stringify(posts));
                 commentInput.value = '';
                 displayPosts();
             }
         }
 
-        function deletePost(postIndex) {
+        function deletePost(postId) {
             if (!confirm('정말로 이 게시물을 삭제하시겠습니까?')) return;
-            posts.splice(postIndex, 1);
+            const index = posts.findIndex(p => p.id === postId);
+            posts.splice(index, 1);
             localStorage.setItem('posts', JSON.stringify(posts));
             displayPosts();
         }
@@ -295,6 +319,49 @@
         function changePage(direction) {
             currentPage += direction;
             displayPosts();
+        }
+
+        // 게시글 페이지에서 조회수 증가 및 게시글 표시
+        function showPost() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const postId = parseInt(urlParams.get('id'), 10);
+            if (!postId) return;
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+
+            // 조회수 증가
+            post.views += 1;
+            localStorage.setItem('posts', JSON.stringify(posts));
+
+            const postContainer = document.createElement('div');
+            postContainer.className = 'post';
+            postContainer.innerHTML = `
+                <h3>${post.title}</h3>
+                <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
+                <p>${post.content}</p>
+                ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
+                <div class="post-actions">
+                    <button class="like-btn" onclick="likePost(${post.id})">좋아요 (${post.likes})</button>
+                    <button class="dislike-btn" onclick="dislikePost(${post.id})">싫어요 (${post.dislikes})</button>
+                    <button class="share-btn" onclick="sharePost(${post.id})">공유</button>
+                    ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${post.id})">삭제</button>` : ''}
+                </div>
+                <div class="comments">
+                    <h4>댓글</h4>
+                    ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
+                    <input type="text" id="comment-${post.id}" placeholder="댓글 입력">
+                    <button onclick="addComment(${post.id})">댓글 추가</button>
+                </div>
+            `;
+            document.querySelector('.container').appendChild(postContainer);
+        }
+
+        // 페이지 로드 시 게시글 표시
+        displayPosts();
+
+        // 게시글 페이지에서 해당 게시글 표시
+        if (window.location.pathname.endsWith('post.html')) {
+            showPost();
         }
     </script>
 </body>
