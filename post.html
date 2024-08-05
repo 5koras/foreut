@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시글 상세</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header, .footer {
+            background-color: #fff;
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        .footer {
+            border-top: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .post {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .post img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+        .post-actions {
+            margin: 10px 0;
+        }
+        .like-btn, .dislike-btn, .delete-btn, .share-btn {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            margin-right: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .like-btn:hover, .dislike-btn:hover, .delete-btn:hover, .share-btn:hover {
+            background-color: #0056b3;
+        }
+        .comments {
+            margin-top: 20px;
+        }
+        .comment {
+            padding: 10px 0;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>게시글 상세</h1>
+        </div>
+
+        <div id="post-details" class="post">
+            <!-- 게시글 상세 내용이 여기에 표시됩니다. -->
+        </div>
+
+        <div id="post-actions" class="post-actions">
+            <!-- 좋아요, 싫어요, 삭제 버튼이 여기에 표시됩니다. -->
+        </div>
+
+        <div class="comments">
+            <h4>댓글</h4>
+            <div id="comments-list">
+                <!-- 댓글이 여기에 표시됩니다. -->
+            </div>
+            <input type="text" id="comment-input" placeholder="댓글 입력">
+            <button onclick="addComment()">댓글 추가</button>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 FOREUT</p>
+        </div>
+    </div>
+
+    <script>
+        const posts = JSON.parse(localStorage.getItem('posts')) || [];
+        const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser'));
+        
+        function displayPost(postIndex) {
+            const post = posts[postIndex];
+            if (!post) {
+                alert('존재하지 않는 게시물입니다.');
+                return;
+            }
+            const postDetails = document.getElementById('post-details');
+            postDetails.innerHTML = `
+                <h3>${post.title}</h3>
+                <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
+                <p>${post.content}</p>
+                ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
+            `;
+
+            const postActions = document.getElementById('post-actions');
+            postActions.innerHTML = `
+                <button class="like-btn" onclick="likePost(${postIndex}, event)">좋아요 (${post.likes})</button>
+                <button class="dislike-btn" onclick="dislikePost(${postIndex}, event)">싫어요 (${post.dislikes})</button>
+                <button class="share-btn" onclick="sharePost(${postIndex}, event)">공유</button>
+                ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${postIndex})">삭제</button>` : ''}
+            `;
+
+            const commentsList = document.getElementById('comments-list');
+            commentsList.innerHTML = post.comments.map(comment => `
+                <div class="comment">
+                    <strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}
+                </div>
+            `).join('');
+            
+            incrementView(postIndex);
+        }
+
+        function incrementView(postIndex) {
+            posts[postIndex].views += 1;
+            localStorage.setItem('posts', JSON.stringify(posts));
+        }
+
+        function addComment() {
+            if (!loggedInUser) {
+                alert('로그인 후 댓글을 작성할 수 있습니다.');
+                return;
+            }
+            const params = new URLSearchParams(window.location.search);
+            const postIndex = parseInt(params.get('id'));
+            const commentInput = document.getElementById('comment-input');
+            const commentText = commentInput.value;
+            if (commentText) {
+                const timestamp = new Date().toLocaleString();
+                posts[postIndex].comments.push({ text: commentText, nickname: loggedInUser.nickname, timestamp });
+                localStorage.setItem('posts', JSON.stringify(posts));
+                commentInput.value = '';
+                displayPost(postIndex);
+            }
+        }
+
+        function likePost(postIndex, event) {
+            event.stopPropagation();
+            const post = posts[postIndex];
+            if (!post.hasLiked) {
+                post.likes += 1;
+                post.hasLiked = true;
+                post.hasDisliked = false;
+                localStorage.setItem('posts', JSON.stringify(posts));
+                displayPost(postIndex);
+            } else {
+                alert('이미 좋아요를 눌렀습니다.');
+            }
+        }
+
+        function dislikePost(postIndex, event) {
+            event.stopPropagation();
+            const post = posts[postIndex];
+            if (!post.hasDisliked) {
+                post.dislikes += 1;
+                post.hasDisliked = true;
+                post.hasLiked = false;
+                localStorage.setItem('posts', JSON.stringify(posts));
+                displayPost(postIndex);
+            } else {
+                alert('이미 싫어요를 눌렀습니다.');
+            }
+        }
+
+        function sharePost(postIndex, event) {
+            event.stopPropagation();
+            const postUrl = `${window.location.origin}/post.html?id=${postIndex}`;
+            navigator.clipboard.writeText(postUrl)
+                .then(() => alert('게시글 URL이 복사되었습니다!'))
+                .catch(err => console.error('URL 복사 실패:', err));
+        }
+
+        function deletePost(postIndex) {
+            if (!confirm('정말로 이 게시물을 삭제하시겠습니까?')) return;
+            posts.splice(postIndex, 1);
+            localStorage.setItem('posts', JSON.stringify(posts));
+            window.location.href = 'index.html'; // 게시물 삭제 후 목록 페이지로 리디렉션
+        }
+
+        window.onload = function() {
+            const params = new URLSearchParams(window.location.search);
+            const postIndex = parseInt(params.get('id'));
+            displayPost(postIndex);
+        };
+    </script>
+</body>
+</html>

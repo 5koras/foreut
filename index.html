@@ -64,6 +64,9 @@
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+        .post h3 {
+            margin: 0;
+        }
         .post img {
             max-width: 100%;
             border-radius: 4px;
@@ -71,7 +74,7 @@
         .post-actions {
             margin: 10px 0;
         }
-        .like-btn, .dislike-btn, .delete-btn, .share-btn {
+        .like-btn, .dislike-btn, .share-btn {
             background-color: #007bff;
             color: #fff;
             border: none;
@@ -80,7 +83,7 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        .like-btn:hover, .dislike-btn:hover, .delete-btn:hover, .share-btn:hover {
+        .like-btn:hover, .dislike-btn:hover, .share-btn:hover {
             background-color: #0056b3;
         }
         .comments {
@@ -160,9 +163,8 @@
         const users = JSON.parse(localStorage.getItem('users')) || [];
         const posts = JSON.parse(localStorage.getItem('posts')) || [];
         const postsPerPage = 5;
-        let loggedInUser = null;
+        let loggedInUser = JSON.parse(localStorage.getItem('loggedInUser'));
         let currentPage = 1;
-        let currentPostId = null;
 
         function signup() {
             const nickname = document.getElementById('signup-nickname').value;
@@ -187,6 +189,7 @@
             const user = users.find(user => user.nickname === nickname && user.password === password);
             if (user) {
                 loggedInUser = user;
+                localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
                 document.getElementById('login-form').style.display = 'none';
                 document.getElementById('signup-form').style.display = 'none';
                 document.getElementById('post-form').style.display = 'block';
@@ -206,10 +209,13 @@
             const image = document.getElementById('post-image').files[0];
             const imageUrl = image ? URL.createObjectURL(image) : '';
             const timestamp = new Date().toLocaleString();
-            const postId = new Date().getTime();  // 유니크한 ID 생성
 
             if (title && content) {
-                const post = { id: postId, title, content, imageUrl, timestamp, nickname: loggedInUser.nickname, likes: 0, dislikes: 0, views: 0, likedBy: [], dislikedBy: [], comments: [] };
+                const post = {
+                    title, content, imageUrl, timestamp, 
+                    nickname: loggedInUser.nickname, 
+                    likes: 0, dislikes: 0, comments: [], views: 0
+                };
                 posts.push(post);
                 localStorage.setItem('posts', JSON.stringify(posts));
                 document.getElementById('post-title').value = '';
@@ -231,138 +237,80 @@
                 const postElement = document.createElement('div');
                 postElement.className = 'post';
                 postElement.innerHTML = `
-                    <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+                    <h3><a href="post.html?id=${i}">${post.title}</a></h3>
                     <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
-                    <p>${post.content}</p>
                     ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
                     <div class="post-actions">
-                        <button class="like-btn" onclick="likePost(${post.id})">좋아요 (${post.likes})</button>
-                        <button class="dislike-btn" onclick="dislikePost(${post.id})">싫어요 (${post.dislikes})</button>
-                        <button class="share-btn" onclick="sharePost(${post.id})">공유</button>
-                        ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${post.id})">삭제</button>` : ''}
-                    </div>
-                    <div class="comments">
-                        <h4>댓글</h4>
-                        ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
-                        <input type="text" id="comment-${post.id}" placeholder="댓글 입력">
-                        <button onclick="addComment(${post.id})">댓글 추가</button>
+                        <button class="like-btn" onclick="likePost(${i}, event)">좋아요 (${post.likes})</button>
+                        <button class="dislike-btn" onclick="dislikePost(${i}, event)">싫어요 (${post.dislikes})</button>
+                        <button class="share-btn" onclick="sharePost(${i}, event)">공유</button>
                     </div>
                 `;
                 postsContainer.appendChild(postElement);
             }
-            document.getElementById('page-info').textContent = `페이지 ${currentPage}`;
-            document.getElementById('prev-btn').disabled = currentPage === 1;
-            document.getElementById('next-btn').disabled = endIndex >= posts.length;
+            updatePagination();
         }
 
-        function likePost(postId) {
-            const post = posts.find(p => p.id === postId);
-            if (post.likedBy.includes(loggedInUser.nickname) || post.dislikedBy.includes(loggedInUser.nickname)) {
-                alert('좋아요와 싫어요는 동시에 선택할 수 없습니다.');
-                return;
-            }
-            if (!post.likedBy.includes(loggedInUser.nickname)) {
-                post.likes += 1;
-                post.likedBy.push(loggedInUser.nickname);
-                localStorage.setItem('posts', JSON.stringify(posts));
-                displayPosts();
-            }
-        }
-
-        function dislikePost(postId) {
-            const post = posts.find(p => p.id === postId);
-            if (post.dislikedBy.includes(loggedInUser.nickname) || post.likedBy.includes(loggedInUser.nickname)) {
-                alert('좋아요와 싫어요는 동시에 선택할 수 없습니다.');
-                return;
-            }
-            if (!post.dislikedBy.includes(loggedInUser.nickname)) {
-                post.dislikes += 1;
-                post.dislikedBy.push(loggedInUser.nickname);
-                localStorage.setItem('posts', JSON.stringify(posts));
-                displayPosts();
-            }
-        }
-
-        function sharePost(postId) {
-            const post = posts.find(p => p.id === postId);
-            const postUrl = `${window.location.origin}/post.html?id=${postId}`;
-            navigator.clipboard.writeText(postUrl).then(() => {
-                alert('게시글 URL이 클립보드에 복사되었습니다.');
-            });
-        }
-
-        function addComment(postId) {
-            if (!loggedInUser) {
-                alert('로그인 후 댓글을 작성할 수 있습니다.');
-                return;
-            }
-            const post = posts.find(p => p.id === postId);
-            const commentInput = document.getElementById(`comment-${postId}`);
-            const commentText = commentInput.value;
-            if (commentText) {
-                const timestamp = new Date().toLocaleString();
-                post.comments.push({ text: commentText, nickname: loggedInUser.nickname, timestamp });
-                localStorage.setItem('posts', JSON.stringify(posts));
-                commentInput.value = '';
-                displayPosts();
-            }
-        }
-
-        function deletePost(postId) {
-            if (!confirm('정말로 이 게시물을 삭제하시겠습니까?')) return;
-            const index = posts.findIndex(p => p.id === postId);
-            posts.splice(index, 1);
-            localStorage.setItem('posts', JSON.stringify(posts));
-            displayPosts();
+        function updatePagination() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const pageInfo = document.getElementById('page-info');
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage * postsPerPage >= posts.length;
+            pageInfo.textContent = `페이지 ${currentPage}`;
         }
 
         function changePage(direction) {
-            currentPage += direction;
+            if ((direction === -1 && currentPage > 1) || (direction === 1 && currentPage * postsPerPage < posts.length)) {
+                currentPage += direction;
+                displayPosts();
+            }
+        }
+
+        function sharePost(postIndex, event) {
+            event.stopPropagation();
+            const postUrl = `${window.location.origin}/post.html?id=${postIndex}`;
+            navigator.clipboard.writeText(postUrl)
+                .then(() => alert('게시글 URL이 복사되었습니다!'))
+                .catch(err => console.error('URL 복사 실패:', err));
+        }
+
+        function likePost(postIndex, event) {
+            event.stopPropagation();
+            const post = posts[postIndex];
+            if (!post.hasLiked) {
+                post.likes += 1;
+                post.hasLiked = true;
+                post.hasDisliked = false;
+                localStorage.setItem('posts', JSON.stringify(posts));
+                displayPosts();
+            } else {
+                alert('이미 좋아요를 눌렀습니다.');
+            }
+        }
+
+        function dislikePost(postIndex, event) {
+            event.stopPropagation();
+            const post = posts[postIndex];
+            if (!post.hasDisliked) {
+                post.dislikes += 1;
+                post.hasDisliked = true;
+                post.hasLiked = false;
+                localStorage.setItem('posts', JSON.stringify(posts));
+                displayPosts();
+            } else {
+                alert('이미 싫어요를 눌렀습니다.');
+            }
+        }
+
+        window.onload = function() {
+            if (loggedInUser) {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('signup-form').style.display = 'none';
+                document.getElementById('post-form').style.display = 'block';
+            }
             displayPosts();
-        }
-
-        // 게시글 페이지에서 조회수 증가 및 게시글 표시
-        function showPost() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const postId = parseInt(urlParams.get('id'), 10);
-            if (!postId) return;
-            const post = posts.find(p => p.id === postId);
-            if (!post) return;
-
-            // 조회수 증가
-            post.views += 1;
-            localStorage.setItem('posts', JSON.stringify(posts));
-
-            const postContainer = document.createElement('div');
-            postContainer.className = 'post';
-            postContainer.innerHTML = `
-                <h3>${post.title}</h3>
-                <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
-                <p>${post.content}</p>
-                ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
-                <div class="post-actions">
-                    <button class="like-btn" onclick="likePost(${post.id})">좋아요 (${post.likes})</button>
-                    <button class="dislike-btn" onclick="dislikePost(${post.id})">싫어요 (${post.dislikes})</button>
-                    <button class="share-btn" onclick="sharePost(${post.id})">공유</button>
-                    ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${post.id})">삭제</button>` : ''}
-                </div>
-                <div class="comments">
-                    <h4>댓글</h4>
-                    ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
-                    <input type="text" id="comment-${post.id}" placeholder="댓글 입력">
-                    <button onclick="addComment(${post.id})">댓글 추가</button>
-                </div>
-            `;
-            document.querySelector('.container').appendChild(postContainer);
-        }
-
-        // 페이지 로드 시 게시글 표시
-        displayPosts();
-
-        // 게시글 페이지에서 해당 게시글 표시
-        if (window.location.pathname.endsWith('post.html')) {
-            showPost();
-        }
+        };
     </script>
 </body>
 </html>
