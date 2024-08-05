@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FOREUT 게시판</title>
     <style>
+        /* 기본 스타일 설정 */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -58,14 +59,12 @@
             background-color: #0056b3;
         }
         .post {
+            position: relative;
             background-color: #fff;
             padding: 20px;
             margin-bottom: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        .post h3 {
-            margin: 0;
         }
         .post img {
             max-width: 100%;
@@ -74,7 +73,7 @@
         .post-actions {
             margin: 10px 0;
         }
-        .like-btn, .dislike-btn, .share-btn {
+        .like-btn, .dislike-btn, .delete-btn {
             background-color: #007bff;
             color: #fff;
             border: none;
@@ -83,7 +82,7 @@
             border-radius: 4px;
             cursor: pointer;
         }
-        .like-btn:hover, .dislike-btn:hover, .share-btn:hover {
+        .like-btn:hover, .dislike-btn:hover, .delete-btn:hover {
             background-color: #0056b3;
         }
         .comments {
@@ -163,7 +162,7 @@
         const users = JSON.parse(localStorage.getItem('users')) || [];
         const posts = JSON.parse(localStorage.getItem('posts')) || [];
         const postsPerPage = 5;
-        let loggedInUser = JSON.parse(localStorage.getItem('loggedInUser'));
+        let loggedInUser = null;
         let currentPage = 1;
 
         function signup() {
@@ -189,7 +188,6 @@
             const user = users.find(user => user.nickname === nickname && user.password === password);
             if (user) {
                 loggedInUser = user;
-                localStorage.setItem('loggedInUser', JSON.stringify(loggedInUser));
                 document.getElementById('login-form').style.display = 'none';
                 document.getElementById('signup-form').style.display = 'none';
                 document.getElementById('post-form').style.display = 'block';
@@ -211,11 +209,7 @@
             const timestamp = new Date().toLocaleString();
 
             if (title && content) {
-                const post = {
-                    title, content, imageUrl, timestamp, 
-                    nickname: loggedInUser.nickname, 
-                    likes: 0, dislikes: 0, comments: [], views: 0
-                };
+                const post = { title, content, imageUrl, timestamp, nickname: loggedInUser.nickname, likes: 0, dislikes: 0, comments: [], views: 0 };
                 posts.push(post);
                 localStorage.setItem('posts', JSON.stringify(posts));
                 document.getElementById('post-title').value = '';
@@ -236,48 +230,34 @@
                 const post = posts[i];
                 const postElement = document.createElement('div');
                 postElement.className = 'post';
+                postElement.id = `post-${i}`;
                 postElement.innerHTML = `
-                    <h3><a href="post.html?id=${i}">${post.title}</a></h3>
+                    <h3><a href="#post-${i}" onclick="scrollToPost(${i})">${post.title}</a></h3>
                     <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
+                    <p>${post.content}</p>
                     ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
                     <div class="post-actions">
                         <button class="like-btn" onclick="likePost(${i}, event)">좋아요 (${post.likes})</button>
                         <button class="dislike-btn" onclick="dislikePost(${i}, event)">싫어요 (${post.dislikes})</button>
-                        <button class="share-btn" onclick="sharePost(${i}, event)">공유</button>
+                        ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${i})">삭제</button>` : ''}
+                    </div>
+                    <div class="comments">
+                        <h4>댓글</h4>
+                        ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
+                        <input type="text" id="comment-${i}" placeholder="댓글 입력">
+                        <button onclick="addComment(${i})">댓글 추가</button>
                     </div>
                 `;
                 postsContainer.appendChild(postElement);
             }
-            updatePagination();
+            document.getElementById('page-info').textContent = `페이지 ${currentPage}`;
+            document.getElementById('prev-btn').disabled = currentPage === 1;
+            document.getElementById('next-btn').disabled = endIndex >= posts.length;
         }
 
-        function updatePagination() {
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
-            const pageInfo = document.getElementById('page-info');
-            prevBtn.disabled = currentPage === 1;
-            nextBtn.disabled = currentPage * postsPerPage >= posts.length;
-            pageInfo.textContent = `페이지 ${currentPage}`;
-        }
-
-        function changePage(direction) {
-            if ((direction === -1 && currentPage > 1) || (direction === 1 && currentPage * postsPerPage < posts.length)) {
-                currentPage += direction;
-                displayPosts();
-            }
-        }
-
-        function sharePost(postIndex, event) {
+        function likePost(index, event) {
             event.stopPropagation();
-            const postUrl = `${window.location.origin}/post.html?id=${postIndex}`;
-            navigator.clipboard.writeText(postUrl)
-                .then(() => alert('게시글 URL이 복사되었습니다!'))
-                .catch(err => console.error('URL 복사 실패:', err));
-        }
-
-        function likePost(postIndex, event) {
-            event.stopPropagation();
-            const post = posts[postIndex];
+            const post = posts[index];
             if (!post.hasLiked) {
                 post.likes += 1;
                 post.hasLiked = true;
@@ -289,9 +269,9 @@
             }
         }
 
-        function dislikePost(postIndex, event) {
+        function dislikePost(index, event) {
             event.stopPropagation();
-            const post = posts[postIndex];
+            const post = posts[index];
             if (!post.hasDisliked) {
                 post.dislikes += 1;
                 post.hasDisliked = true;
@@ -303,14 +283,87 @@
             }
         }
 
-        window.onload = function() {
-            if (loggedInUser) {
-                document.getElementById('login-form').style.display = 'none';
-                document.getElementById('signup-form').style.display = 'none';
-                document.getElementById('post-form').style.display = 'block';
+        function addComment(postIndex) {
+            if (!loggedInUser) {
+                alert('로그인 후 댓글을 작성할 수 있습니다.');
+                return;
             }
+            const commentInput = document.getElementById(`comment-${postIndex}`);
+            const commentText = commentInput.value;
+            if (commentText) {
+                const timestamp = new Date().toLocaleString();
+                posts[postIndex].comments.push({ text: commentText, nickname: loggedInUser.nickname, timestamp });
+                localStorage.setItem('posts', JSON.stringify(posts));
+                commentInput.value = '';
+                displayPosts();
+            }
+        }
+
+        function deletePost(postIndex) {
+            if (!confirm('정말로 이 게시물을 삭제하시겠습니까?')) return;
+            posts.splice(postIndex, 1);
+            localStorage.setItem('posts', JSON.stringify(posts));
             displayPosts();
+        }
+
+        function scrollToPost(postIndex) {
+            const postElement = document.getElementById(`post-${postIndex}`);
+            if (postElement) {
+                postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                incrementView(postIndex); // 클릭할 때 조회수 증가
+            }
+        }
+
+        function incrementView(postIndex) {
+            posts[postIndex].views += 1;
+            localStorage.setItem('posts', JSON.stringify(posts));
+        }
+
+        function changePage(direction) {
+            currentPage += direction;
+            displayPosts();
+        }
+
+        window.onload = function() {
+            // If the URL contains a post ID, handle the single post view
+            const params = new URLSearchParams(window.location.search);
+            const postId = params.get('id');
+            if (postId !== null) {
+                displaySinglePost(parseInt(postId));
+            } else {
+                displayPosts();
+            }
         };
+
+        function displaySinglePost(postIndex) {
+            const post = posts[postIndex];
+            if (!post) {
+                alert('존재하지 않는 게시물입니다.');
+                return;
+            }
+            const postsContainer = document.getElementById('posts');
+            postsContainer.innerHTML = `
+                <div class="post" id="post-${postIndex}">
+                    <h3>${post.title}</h3>
+                    <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp} | <strong>조회수:</strong> ${post.views}</p>
+                    <p>${post.content}</p>
+                    ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
+                    <div class="post-actions">
+                        <button class="like-btn" onclick="likePost(${postIndex}, event)">좋아요 (${post.likes})</button>
+                        <button class="dislike-btn" onclick="dislikePost(${postIndex}, event)">싫어요 (${post.dislikes})</button>
+                        ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${postIndex})">삭제</button>` : ''}
+                    </div>
+                    <div class="comments">
+                        <h4>댓글</h4>
+                        ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
+                        <input type="text" id="comment-${postIndex}" placeholder="댓글 입력">
+                        <button onclick="addComment(${postIndex})">댓글 추가</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('post-' + postIndex).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            incrementView(postIndex);
+        }
     </script>
 </body>
 </html>
