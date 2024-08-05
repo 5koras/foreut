@@ -1,26 +1,301 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Map</title>
+    <title>FOREUT 게시판</title>
     <style>
         body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
         }
-        #map {
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header, .footer {
+            background-color: #fff;
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+        .footer {
+            border-top: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .form-group {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        input[type="text"], input[type="password"], textarea {
             width: 100%;
-            height: 100vh;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="file"] {
+            margin-top: 8px;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .post {
+            background-color: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .post img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+        .post-actions {
+            margin: 10px 0;
+        }
+        .like-btn, .dislike-btn, .delete-btn, .share-btn {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            margin-right: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .like-btn:hover, .dislike-btn:hover, .delete-btn:hover, .share-btn:hover {
+            background-color: #0056b3;
+        }
+        .comments {
+            margin-top: 20px;
+        }
+        .comment {
+            padding: 10px 0;
+            border-top: 1px solid #ddd;
+        }
+        .pagination {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .pagination button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        .pagination button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .pagination span {
+            font-size: 16px;
+            margin: 0 10px;
         }
     </style>
 </head>
 <body>
-    <h1>마인크래프트 실시간 맵</h1>
-    <iframe id="map" src="http://114.200.236.40:8123/" frameborder="0"></iframe>
+    <div class="container">
+        <div class="header">
+            <h1>FOREUT 게시판</h1>
+        </div>
+
+        <div id="login-form" class="form-group">
+            <h2>로그인</h2>
+            <input type="text" id="login-nickname" placeholder="닉네임">
+            <input type="password" id="login-password" placeholder="비밀번호">
+            <button onclick="login()">로그인</button>
+        </div>
+
+        <div id="signup-form" class="form-group">
+            <h2>회원가입</h2>
+            <input type="text" id="signup-nickname" placeholder="닉네임">
+            <input type="password" id="signup-password" placeholder="비밀번호">
+            <button onclick="signup()">회원가입</button>
+        </div>
+
+        <div id="post-form" class="form-group" style="display: none;">
+            <h2>게시글 작성</h2>
+            <input type="text" id="post-title" placeholder="제목">
+            <textarea id="post-content" rows="5" placeholder="내용"></textarea>
+            <input type="file" id="post-image">
+            <button onclick="createPost()">게시글 작성</button>
+        </div>
+
+        <div id="posts">
+            <h2>게시글</h2>
+        </div>
+
+        <div id="pagination" class="pagination">
+            <button id="prev-btn" onclick="changePage(-1)">이전</button>
+            <span id="page-info">페이지 1</span>
+            <button id="next-btn" onclick="changePage(1)">다음</button>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 FOREUT</p>
+        </div>
+    </div>
+
     <script>
-        // WebSocket 또는 AJAX를 사용하여 실시간 플레이어 데이터를 업데이트하는 스크립트를 추가하세요.
+        const users = JSON.parse(localStorage.getItem('users')) || [];
+        const posts = JSON.parse(localStorage.getItem('posts')) || [];
+        const postsPerPage = 5;
+        let loggedInUser = null;
+        let currentPage = 1;
+
+        function signup() {
+            const nickname = document.getElementById('signup-nickname').value;
+            const password = document.getElementById('signup-password').value;
+            if (nickname && password) {
+                const userExists = users.some(user => user.nickname === nickname);
+                if (!userExists) {
+                    users.push({ nickname, password });
+                    localStorage.setItem('users', JSON.stringify(users));
+                    alert('회원가입 성공! 로그인 해주세요.');
+                } else {
+                    alert('이미 가입된 닉네임입니다.');
+                }
+            } else {
+                alert('닉네임과 비밀번호를 입력하세요.');
+            }
+        }
+
+        function login() {
+            const nickname = document.getElementById('login-nickname').value;
+            const password = document.getElementById('login-password').value;
+            const user = users.find(user => user.nickname === nickname && user.password === password);
+            if (user) {
+                loggedInUser = user;
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('signup-form').style.display = 'none';
+                document.getElementById('post-form').style.display = 'block';
+                displayPosts();
+            } else {
+                alert('가입되지 않은 닉네임이거나 비밀번호가 틀립니다.');
+            }
+        }
+
+        function createPost() {
+            if (!loggedInUser) {
+                alert('로그인 후 게시글을 작성할 수 있습니다.');
+                return;
+            }
+            const title = document.getElementById('post-title').value;
+            const content = document.getElementById('post-content').value;
+            const image = document.getElementById('post-image').files[0];
+            const imageUrl = image ? URL.createObjectURL(image) : '';
+            const timestamp = new Date().toLocaleString();
+
+            if (title && content) {
+                const post = { title, content, imageUrl, timestamp, nickname: loggedInUser.nickname, likes: 0, dislikes: 0, comments: [] };
+                posts.push(post);
+                localStorage.setItem('posts', JSON.stringify(posts));
+                document.getElementById('post-title').value = '';
+                document.getElementById('post-content').value = '';
+                document.getElementById('post-image').value = '';
+                displayPosts();
+            } else {
+                alert('제목과 내용을 입력하세요.');
+            }
+        }
+
+        function displayPosts() {
+            const postsContainer = document.getElementById('posts');
+            postsContainer.innerHTML = '<h2>게시글</h2>';
+            const startIndex = (currentPage - 1) * postsPerPage;
+            const endIndex = Math.min(startIndex + postsPerPage, posts.length);
+            for (let i = startIndex; i < endIndex; i++) {
+                const post = posts[i];
+                const postElement = document.createElement('div');
+                postElement.className = 'post';
+                postElement.innerHTML = `
+                    <h3>${post.title}</h3>
+                    <p><strong>작성자:</strong> ${post.nickname} | <strong>작성일:</strong> ${post.timestamp}</p>
+                    <p>${post.content}</p>
+                    ${post.imageUrl ? `<img src="${post.imageUrl}" alt="게시글 이미지">` : ''}
+                    <div class="post-actions">
+                        <button class="like-btn" onclick="likePost(${i})">좋아요 (${post.likes})</button>
+                        <button class="dislike-btn" onclick="dislikePost(${i})">싫어요 (${post.dislikes})</button>
+                        <button class="share-btn" onclick="sharePost()">공유</button>
+                        ${loggedInUser && post.nickname === loggedInUser.nickname ? `<button class="delete-btn" onclick="deletePost(${i})">삭제</button>` : ''}
+                    </div>
+                    <div class="comments">
+                        <h4>댓글</h4>
+                        ${post.comments.map(comment => `<div class="comment"><strong>작성자:</strong> ${comment.nickname} | <strong>작성일:</strong> ${comment.timestamp} <br>${comment.text}</div>`).join('')}
+                        <input type="text" id="comment-${i}" placeholder="댓글 입력">
+                        <button onclick="addComment(${i})">댓글 추가</button>
+                    </div>
+                `;
+                postsContainer.appendChild(postElement);
+            }
+            document.getElementById('page-info').textContent = `페이지 ${currentPage}`;
+            document.getElementById('prev-btn').disabled = currentPage === 1;
+            document.getElementById('next-btn').disabled = endIndex >= posts.length;
+        }
+
+        function likePost(index) {
+            posts[index].likes += 1;
+            localStorage.setItem('posts', JSON.stringify(posts));
+            displayPosts();
+        }
+
+        function dislikePost(index) {
+            posts[index].dislikes += 1;
+            localStorage.setItem('posts', JSON.stringify(posts));
+            displayPosts();
+        }
+
+        function sharePost() {
+            alert('게시글이 공유되었습니다.');
+        }
+
+        function addComment(postIndex) {
+            if (!loggedInUser) {
+                alert('로그인 후 댓글을 작성할 수 있습니다.');
+                return;
+            }
+            const commentInput = document.getElementById(`comment-${postIndex}`);
+            const commentText = commentInput.value;
+            if (commentText) {
+                const timestamp = new Date().toLocaleString();
+                posts[postIndex].comments.push({ text: commentText, nickname: loggedInUser.nickname, timestamp });
+                localStorage.setItem('posts', JSON.stringify(posts));
+                commentInput.value = '';
+                displayPosts();
+            }
+        }
+
+        function deletePost(postIndex) {
+            if (!confirm('정말로 이 게시물을 삭제하시겠습니까?')) return;
+            posts.splice(postIndex, 1);
+            localStorage.setItem('posts', JSON.stringify(posts));
+            displayPosts();
+        }
+
+        function changePage(direction) {
+            currentPage += direction;
+            displayPosts();
+        }
     </script>
 </body>
 </html>
