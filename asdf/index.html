@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 종 버튼</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff;
+            font-family: Arial, sans-serif;
+        }
+        .bell-container {
+            text-align: center;
+        }
+        .bell {
+            width: 100px;
+            height: 100px;
+            background-color: #ffd700;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 0 auto;
+        }
+        .bell:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .bell-text {
+            font-size: 24px;
+            color: #333;
+            margin-top: 15px;
+            transition: color 0.2s;
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="bell-container">
+        <div class="bell" onclick="ringBell()">
+            🏳️‍🌈❤️🧑‍🤝‍🧑
+        </div>
+        <div id="bellText" class="bell-text">누르지마세요!</div>
+    </div>
+
+    <!-- JavaScript 부분 -->
+    <script>
+        function ringBell() {
+            // 텍스트 변경
+            document.getElementById("bellText").innerText = "!GAY!";
+            
+            // 색상 변경
+            document.getElementById("bellText").style.color = "#ff4500";
+
+            // 종 소리 재생 (gay.mp3 파일이 같은 폴더에 있어야 함)
+            const audio = new Audio("gay.mp3");
+            audio.play();
+
+            // 1초 후에 텍스트와 색상 초기화
+            setTimeout(() => {
+                document.getElementById("bellText").innerText = "누르지마세요!!";
+                document.getElementById("bellText").style.color = "#333";
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
